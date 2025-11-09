@@ -8,8 +8,9 @@
 # ==============================================================================
 BACKEND_DIR := backend-go
 FRONTEND_DIR := frontend
-DIST_DIR := $(BACKEND_DIR)/dist
-BUILD_SCRIPT := $(BACKEND_DIR)/build.sh
+DIST_DIR := dist
+UNIFIED_BUILD_SCRIPT := build.sh
+BACKEND_BUILD_SCRIPT := $(BACKEND_DIR)/build.sh
 
 # Version information - read from VERSION file
 VERSION := $(shell cat VERSION 2>/dev/null || echo "v0.0.0-dev")
@@ -100,72 +101,78 @@ dev-frontend: ## Run frontend development server
 	cd $(FRONTEND_DIR) && bun run dev
 
 # ==============================================================================
-# Build
+# Build - Using Unified Build Script (Recommended)
 # ==============================================================================
 .PHONY: build
-build: clean build-frontend build-backend ## Full build (frontend + backend for all platforms)
-	@echo "$(COLOR_GREEN)✅ Build complete! Binaries are in $(DIST_DIR)/$(COLOR_RESET)"
-	@ls -lh $(DIST_DIR)/
+build: ## Full build using unified script (frontend + backend for current platform)
+	@chmod +x $(UNIFIED_BUILD_SCRIPT)
+	@./$(UNIFIED_BUILD_SCRIPT)
+
+.PHONY: build-all
+build-all: ## Build all platforms using unified script
+	@chmod +x $(UNIFIED_BUILD_SCRIPT)
+	@./$(UNIFIED_BUILD_SCRIPT) --all
+
+.PHONY: build-platform
+build-platform: ## Build specific platform (usage: make build-platform PLATFORM=linux-amd64)
+	@chmod +x $(UNIFIED_BUILD_SCRIPT)
+	@./$(UNIFIED_BUILD_SCRIPT) -p $(PLATFORM)
 
 .PHONY: build-frontend
-build-frontend: ## Build frontend only (force rebuild)
+build-frontend: ## Build frontend only
+	@chmod +x $(UNIFIED_BUILD_SCRIPT)
+	@./$(UNIFIED_BUILD_SCRIPT) --frontend-only
+
+# ==============================================================================
+# Build - Legacy Makefile Commands (Alternative)
+# ==============================================================================
+.PHONY: build-legacy
+build-legacy: clean build-frontend-legacy build-backend-legacy ## Full build using Makefile (all platforms)
+	@echo "$(COLOR_GREEN)✅ Build complete! Binaries are in $(BACKEND_DIR)/dist/$(COLOR_RESET)"
+	@ls -lh $(BACKEND_DIR)/dist/
+
+.PHONY: build-frontend-legacy
+build-frontend-legacy: ## Build frontend only (force rebuild)
 	@echo "$(COLOR_CYAN)📦 强制构建前端...$(COLOR_RESET)"
 	$(MAKE) build-frontend-internal
 
-.PHONY: build-backend
-build-backend: build-frontend ## Build backend for all platforms (includes frontend)
+.PHONY: build-backend-legacy
+build-backend-legacy: build-frontend-legacy ## Build backend for all platforms (includes frontend)
 	@echo "$(COLOR_CYAN)🔨 Building Go backend for all platforms...$(COLOR_RESET)"
 	@mkdir -p $(BACKEND_DIR)/frontend/dist
 	@cp -r $(FRONTEND_DIR)/dist/* $(BACKEND_DIR)/frontend/dist/
-	@chmod +x $(BUILD_SCRIPT)
+	@chmod +x $(BACKEND_BUILD_SCRIPT)
 	@cd $(BACKEND_DIR) && ./build.sh
 
 .PHONY: build-linux
-build-linux: build-frontend ## Build for Linux (amd64 + arm64)
-	@echo "$(COLOR_CYAN)🐧 Building for Linux...$(COLOR_RESET)"
-	@mkdir -p $(BACKEND_DIR)/frontend/dist $(DIST_DIR)
-	@cp -r $(FRONTEND_DIR)/dist/* $(BACKEND_DIR)/frontend/dist/
-	cd $(BACKEND_DIR) && GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY_LINUX_AMD64) .
-	cd $(BACKEND_DIR) && GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY_LINUX_ARM64) .
-	@echo "$(COLOR_GREEN)✅ Linux builds complete$(COLOR_RESET)"
+build-linux: ## Build for Linux (amd64 + arm64)
+	@chmod +x $(UNIFIED_BUILD_SCRIPT)
+	@./$(UNIFIED_BUILD_SCRIPT) -p linux-amd64
+	@./$(UNIFIED_BUILD_SCRIPT) --skip-frontend -p linux-arm64
 
 .PHONY: build-darwin
-build-darwin: build-frontend ## Build for macOS (amd64 + arm64)
-	@echo "$(COLOR_CYAN)🍎 Building for macOS...$(COLOR_RESET)"
-	@mkdir -p $(BACKEND_DIR)/frontend/dist $(DIST_DIR)
-	@cp -r $(FRONTEND_DIR)/dist/* $(BACKEND_DIR)/frontend/dist/
-	cd $(BACKEND_DIR) && GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY_DARWIN_AMD64) .
-	cd $(BACKEND_DIR) && GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY_DARWIN_ARM64) .
-	@echo "$(COLOR_GREEN)✅ macOS builds complete$(COLOR_RESET)"
+build-darwin: ## Build for macOS (amd64 + arm64)
+	@chmod +x $(UNIFIED_BUILD_SCRIPT)
+	@./$(UNIFIED_BUILD_SCRIPT) -p darwin-amd64
+	@./$(UNIFIED_BUILD_SCRIPT) --skip-frontend -p darwin-arm64
 
 .PHONY: build-windows
-build-windows: build-frontend ## Build for Windows (amd64)
-	@echo "$(COLOR_CYAN)🪟 Building for Windows...$(COLOR_RESET)"
-	@mkdir -p $(BACKEND_DIR)/frontend/dist $(DIST_DIR)
-	@cp -r $(FRONTEND_DIR)/dist/* $(BACKEND_DIR)/frontend/dist/
-	cd $(BACKEND_DIR) && GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY_WINDOWS_AMD64) .
-	@echo "$(COLOR_GREEN)✅ Windows build complete$(COLOR_RESET)"
+build-windows: ## Build for Windows (amd64)
+	@chmod +x $(UNIFIED_BUILD_SCRIPT)
+	@./$(UNIFIED_BUILD_SCRIPT) -p windows-amd64
 
 .PHONY: build-current
-build-current: build-frontend ## Build for current platform only
-	@echo "$(COLOR_CYAN)🔨 Building for current platform...$(COLOR_RESET)"
-	@mkdir -p $(BACKEND_DIR)/frontend/dist $(DIST_DIR)
-	@cp -r $(FRONTEND_DIR)/dist/* $(BACKEND_DIR)/frontend/dist/
-	cd $(BACKEND_DIR) && go build -ldflags "$(LDFLAGS)" -o dist/$(BINARY_PREFIX) .
-	@echo "$(COLOR_GREEN)✅ Build complete: $(DIST_DIR)/$(BINARY_PREFIX)$(COLOR_RESET)"
+build-current: ## Build for current platform only
+	@chmod +x $(UNIFIED_BUILD_SCRIPT)
+	@./$(UNIFIED_BUILD_SCRIPT)
 
 # ==============================================================================
 # Clean
 # ==============================================================================
 .PHONY: clean
 clean: ## Clean all build artifacts
-	@echo "$(COLOR_YELLOW)🧹 Cleaning build artifacts...$(COLOR_RESET)"
-	@rm -rf $(DIST_DIR)
-	@rm -rf $(BACKEND_DIR)/frontend/dist
-	@rm -rf $(FRONTEND_DIR)/dist
-	@rm -rf $(FRONTEND_DIR)/node_modules/.vite
-	@rm -f $(FRONTEND_BUILD_MARKER)
-	@echo "$(COLOR_GREEN)✅ Clean complete$(COLOR_RESET)"
+	@chmod +x $(UNIFIED_BUILD_SCRIPT)
+	@./$(UNIFIED_BUILD_SCRIPT) --clean
 
 .PHONY: clean-all
 clean-all: clean ## Deep clean (including node_modules)
@@ -259,7 +266,7 @@ init-config: ## Initialize configuration files
 # Release
 # ==============================================================================
 .PHONY: release
-release: clean build ## Create release builds for all platforms
+release: build-all ## Create release builds for all platforms
 	@echo "$(COLOR_GREEN)🎉 Release build complete!$(COLOR_RESET)"
 	@echo "$(COLOR_CYAN)📦 Release artifacts:$(COLOR_RESET)"
 	@ls -lh $(DIST_DIR)/
@@ -305,10 +312,14 @@ help: ## Display this help message
 	@echo ""
 	@awk 'BEGIN {FS = ":.*?## "; printf "Usage:\n  make $(COLOR_GREEN)<target>$(COLOR_RESET)\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*?## / { printf "  $(COLOR_GREEN)%-20s$(COLOR_RESET) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
-	@echo "$(COLOR_YELLOW)Examples:$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Quick Start Examples:$(COLOR_RESET)"
 	@echo "  make run              # Build frontend and run server"
-	@echo "  make build            # Build for all platforms"
+	@echo "  make build            # Build for current platform"
+	@echo "  make build-all        # Build for all platforms"
 	@echo "  make build-linux      # Build for Linux only"
 	@echo "  make dev              # Run in development mode"
 	@echo "  make clean            # Clean build artifacts"
+	@echo ""
+	@echo "$(COLOR_YELLOW)Build Script Info:$(COLOR_RESET)"
+	@echo "  ./build.sh --help     # Show unified build script help"
 	@echo ""

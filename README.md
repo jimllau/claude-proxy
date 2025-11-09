@@ -77,6 +77,8 @@ docker-compose up -d
 
 **适合追求极致性能的用户，启动时间 <100ms**
 
+#### 选项 A: 使用统一构建脚本（推荐）
+
 ```bash
 # 1. 克隆项目
 git clone https://github.com/BenedictKing/claude-proxy
@@ -86,21 +88,42 @@ cd claude-proxy
 cp backend-go/.env.example backend-go/.env
 # 编辑 backend-go/.env 文件，设置你的配置
 
-# 3. 构建并启动（自动构建前端+后端）
-make build-current
-cd backend-go && ./dist/claude-proxy
+# 3. 一键构建（前端+后端）
+./build.sh              # 构建当前平台
+# 或
+./build.sh --all        # 构建所有平台（Linux、macOS、Windows）
+
+# 4. 运行
+./dist/claude-proxy-linux-amd64    # Linux
+./dist/claude-proxy-darwin-arm64   # macOS Apple Silicon
+./dist/claude-proxy-windows-amd64.exe  # Windows
 ```
 
-**或使用 Makefile 快捷命令：**
+**构建脚本更多选项：**
 
 ```bash
+./build.sh --help           # 查看帮助信息
+./build.sh -p linux-amd64   # 仅构建 Linux AMD64
+./build.sh --frontend-only  # 仅构建前端
+./build.sh --skip-frontend  # 跳过前端构建（假设已构建）
+./build.sh --clean          # 清理所有构建产物
+```
+
+#### 选项 B: 使用 Makefile
+
+```bash
+# 1. 使用 Makefile 构建
+make build-current         # 构建当前平台
+make build-all            # 构建所有平台
+
+# 2. 或进入后端目录使用更多命令
 cd backend-go
 make help          # 查看所有可用命令
 make dev           # 开发模式（热重载）
 make build-run     # 构建并运行
 ```
 
-> 📚 Go 版本配置管理详见 `cd backend-go && make help`
+> 📚 Go 版本配置管理详见 `./build.sh --help` 或 `cd backend-go && make help`
 
 ---
 

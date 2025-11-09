@@ -25,6 +25,53 @@
 
 ### 快速开始
 
+#### 选项 A: 使用统一构建脚本（推荐）
+
+```bash
+# 在项目根目录
+
+# 查看构建脚本帮助
+./build.sh --help
+
+# 一键构建（前端+后端，当前平台）
+./build.sh
+
+# 构建所有平台
+./build.sh --all
+
+# 构建特定平台
+./build.sh -p linux-amd64
+
+# 仅构建前端
+./build.sh --frontend-only
+
+# 清理所有构建产物
+./build.sh --clean
+```
+
+#### 选项 B: 使用 Makefile
+
+```bash
+# 在项目根目录
+
+# 查看所有可用命令
+make help
+
+# 构建当前平台（前端+后端）
+make build
+
+# 构建所有平台
+make build-all
+
+# 开发模式（支持热重载）
+make dev
+
+# 运行（自动构建前端）
+make run
+```
+
+#### 选项 C: 直接使用后端 Go Makefile
+
 ```bash
 cd backend-go
 
@@ -45,6 +92,7 @@ make build-current
 
 ```bash
 # 配置管理
+cd backend-go
 make config-interactive    # 交互式配置
 make config-show          # 显示当前配置
 make config-reset         # 重置配置
@@ -54,6 +102,28 @@ make dev                  # 热重载开发模式
 make test                 # 运行测试
 make clean                # 清理构建产物
 ```
+
+### 构建工作流程
+
+统一构建脚本 (`build.sh`) 会自动完成以下步骤：
+
+1. **构建前端**
+   - 使用 Bun 或 npm 构建 Vue 3 应用
+   - 生成静态资源到 `frontend/dist/`
+
+2. **复制前端资源**
+   - 将前端构建产物复制到 `backend-go/frontend/dist/`
+   - Go 后端通过 `embed.FS` 嵌入这些资源
+
+3. **构建 Go 后端**
+   - 注入版本信息（从 VERSION 文件读取）
+   - 根据指定平台进行交叉编译
+   - 生成最终的可执行文件到 `dist/` 目录
+
+4. **生成可执行文件**
+   - Linux: `claude-proxy-linux-amd64`, `claude-proxy-linux-arm64`
+   - macOS: `claude-proxy-darwin-amd64`, `claude-proxy-darwin-arm64`
+   - Windows: `claude-proxy-windows-amd64.exe`
 
 ### Go 开发环境要求
 
